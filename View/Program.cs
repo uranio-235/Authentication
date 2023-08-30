@@ -17,7 +17,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(option =>
 {
-    option.SwaggerDoc("v1", new OpenApiInfo { Title = "Demo API", Version = "v1" });
+    option.SwaggerDoc("v1", new OpenApiInfo 
+    { 
+        Title = "Demo API",
+        Version = "v1" 
+    });
+
     option.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
@@ -27,6 +32,7 @@ builder.Services.AddSwaggerGen(option =>
         BearerFormat = "JWT",
         Scheme = "Bearer"
     });
+
     option.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -85,16 +91,26 @@ app.MapGet("/migrate", async (IdentityDbContext dbContext) =>
     await dbContext.Database.EnsureDeletedAsync();
     await dbContext.Database.EnsureCreatedAsync();
     return Results.Ok();
-});
+})
+.WithDescription("Initialize identity creating all database's required tables.")
+.WithOpenApi();
 
-app.MapGet("/", async (ClaimsPrincipal claim, UserManager<IdentityUser> userManager) => 
+app.MapGet("/me", async (ClaimsPrincipal claim, UserManager<IdentityUser> userManager) => 
 {
     var user = await userManager.GetUserAsync(claim);
-    var json = new { user.Id, user.UserName, user.Email, user.EmailConfirmed, user.TwoFactorEnabled  };
+    
+    var json = new { 
+        user.Id,
+        user.UserName,
+        user.Email,
+        user.EmailConfirmed,
+        user.TwoFactorEnabled  
+    };
+
     return Results.Ok(json);
 })
 .RequireAuthorization()
-.WithName("MyExampleApi")
+.WithDescription("An example get request, just fetch current user info through the UserManager.")
 .WithOpenApi();
 
 app.MapIdentityApi<IdentityUser>();
