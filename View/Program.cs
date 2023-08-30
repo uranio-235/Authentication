@@ -48,13 +48,13 @@ builder.Services
 
 builder.Services.AddAuthorizationBuilder();
 
-builder.Services.AddDbContext<AuthDbContext>(o => 
-    o.UseSqlite($"DataSource={Path.GetTempFileName()}"),
+builder.Services.AddDbContext<IdentityDbContext>(o => 
+    o.UseSqlite($"DataSource={Path.GetTempFileName()}", b => b.MigrationsAssembly("View")),
     ServiceLifetime.Singleton);
 
 builder.Services
-    .AddIdentityCore<LocalUser>()
-    .AddEntityFrameworkStores<AuthDbContext>()
+    .AddIdentityCore<IdentityUser>()
+    .AddEntityFrameworkStores<IdentityDbContext>()
     .AddApiEndpoints();
 
 
@@ -79,30 +79,38 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.MapGet("/migrate", async (IdentityDbContext dbContext) =>
+{
+    await dbContext.Database.MigrateAsync();
+    return Results.Ok("migrated");
+});
+
 app
-    .MapGet("/", (ClaimsPrincipal claim) => Results.Ok($"hello {claim.Identity.Name}"))
+    .MapGet("/", (ClaimsPrincipal claim, IdentityDbContext dbContext) => 
+    {
+        var user = dbContext.Users.Single(u => u.UserName == claim.Identity.Name);
+        var json = new { claim.Identity.Name, user.Email };
+        return Results.Ok(json);
+    })
     .RequireAuthorization()
     .WithName("MyExampleApi")
     .WithOpenApi();
 
-app.MapIdentityApi<LocalUser>();
+app.MapIdentityApi<IdentityUser>();
 
 
 app.Run();
 
-public class LocalUser : IdentityUser
-{
-}
 
-public class AuthDbContext : IdentityDbContext<LocalUser>
-{
-    public AuthDbContext()
-    {
-        Database.Migrate();
-    }
+//public class AuthDbContext : IdentityDbContext<IdentityUser>
+//{
+//    public AuthDbContext()
+//    {
+//        Database.Migrate();
+//    }
 
-    public AuthDbContext(DbContextOptions<AuthDbContext> options) : base(options)
-    {
-        Database.Migrate();
-    }
-}
+//    public AuthDbContext(DbContextOptions<AuthDbContext> options) : base(options)
+//    {
+//        Database.Migrate();
+//    }
+//}
