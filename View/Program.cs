@@ -10,6 +10,7 @@ var builder = WebApplication.CreateBuilder(args);
 // All about identity
 // https://learn.microsoft.com/en-us/aspnet/core/security/authentication/identity?view=aspnetcore-8.0&tabs=visual-studio
 
+#nullable disable
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -81,20 +82,20 @@ if (app.Environment.IsDevelopment())
 
 app.MapGet("/migrate", async (IdentityDbContext dbContext) =>
 {
-    await dbContext.Database.MigrateAsync();
-    return Results.Ok("migrated");
+    await dbContext.Database.EnsureDeletedAsync();
+    await dbContext.Database.EnsureCreatedAsync();
+    return Results.Ok();
 });
 
-app
-    .MapGet("/", (ClaimsPrincipal claim, IdentityDbContext dbContext) => 
-    {
-        var user = dbContext.Users.Single(u => u.UserName == claim.Identity.Name);
-        var json = new { claim.Identity.Name, user.Email };
-        return Results.Ok(json);
-    })
-    .RequireAuthorization()
-    .WithName("MyExampleApi")
-    .WithOpenApi();
+app.MapGet("/", async (ClaimsPrincipal claim, UserManager<IdentityUser> userManager) => 
+{
+    var user = await userManager.GetUserAsync(claim);
+    var json = new { user.Id, user.UserName, user.Email, user.EmailConfirmed, user.TwoFactorEnabled  };
+    return Results.Ok(json);
+})
+.RequireAuthorization()
+.WithName("MyExampleApi")
+.WithOpenApi();
 
 app.MapIdentityApi<IdentityUser>();
 
@@ -102,15 +103,3 @@ app.MapIdentityApi<IdentityUser>();
 app.Run();
 
 
-//public class AuthDbContext : IdentityDbContext<IdentityUser>
-//{
-//    public AuthDbContext()
-//    {
-//        Database.Migrate();
-//    }
-
-//    public AuthDbContext(DbContextOptions<AuthDbContext> options) : base(options)
-//    {
-//        Database.Migrate();
-//    }
-//}
